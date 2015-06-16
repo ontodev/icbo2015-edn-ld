@@ -19,14 +19,14 @@ EDN-LD is a set of conventions for representing linked data using Extensible Dat
 
 EDN-LD is a set of conventions for representing linked data using Extensible Data Notation (EDN),\footnote{\url{https://github.com/edn-format/edn}} and a library for conveniently working with those representations in the Clojure programming language.\footnote{\url{http://clojure.org}} Clojure is a modern Lisp that runs on the Java Virtual Machine (JVM) and has full access to the vast ecosystem of Java libraries. Since many linked data libraries and tools also target the JVM, Clojure is a tempting alternative to Java for working with linked data. Tawny-OWL is another example of a linked data tool written in Clojure \citep{Lord2013}, however it is focused on ontology development and takes quite a different approach from EDN-LD. With this project our goal is to provide a lightweight alternative to existing linked data tools for many common use cases, much in the spirit of JSON-LD.\footnote{\url{http://json-ld.org}} In this presentation we discuss the motivation and design of EDN-LD, and demonstrate how it can clearly and concisely transform tables into triples.
 
-EDN-LD is open source software, published under a BSD license. The source code is written in a literate style, with extensive unit tests. It is available on GitHub\footnote{\url{https://github.com/ontodev/edn-ld}} with a tutorial that also serves as an automated integration test. Feedback and contributions are welcome on our GitHub site.
+EDN-LD is open source software, published under a BSD license. The source code is written in a literate style, with extensive unit tests. It is available on GitHub\footnote{\url{https://github.com/ontodev/edn-ld}} with a tutorial that also serves as an automated integration test. Our interactive online tutorial can be used without needing to install Clojure.\footnote{\url{http://try.edn-ld.com}} Feedback and contributions are welcome on our GitHub site.
 
 
 \section{JSON-LD}
 
 EDN-LD shares many of the motivations and goals of JSON-LD. First we will discuss the benefits and shortcomings of JSON-LD, then show how EDN-LD improves on it in several respects.
 
-JavaScript Object Notation (JSON)\footnote{\url{http://json.org}} is a subset of the JavaScript programming language that is widely used for expressing literal data within JavaScript programs. JSON's elements are: null, booleans, strings, and numbers. Elements can be combined into arrays and objects, where the latter are effectively maps from strings to other values. These simple elements are common to virtually every programming language, and so JSON has also come to be used for data transfer between programs. It has replaced heavier formats such as XML in many applications.
+JavaScript Object Notation (JSON)\footnote{\url{http://json.org}} is a subset of the JavaScript programming language that is widely used for expressing literal data within JavaScript programs. JSON's elements are: null, booleans, strings, and numbers. Elements can be combined into arrays and objects, where the latter are effectively maps from strings to other values. These simple elements are common to virtually every programming language, and JSON is now widely used for data transfer between programs. It has replaced heavier formats such as XML in many applications.
 
 JSON has many limitations, including a lack of comments, ambiguous numbers, and the lack of any mechanism for extending its types. In practise, strings are used to represent most types of data, but since it is difficult to attach type information to aid in their interpretation, this can quickly lead to ambiguity.
 
@@ -37,8 +37,7 @@ The core of JSON-LD is the {\tt @context} map, which can be specified inside a J
 JSON-LD is an exciting addition to the ecosystem of linked data tools, but it is constrained by the limitations of the JSON format. The heavy use of strings, in particular, can make it difficult to distinguish between a literal string, a compact IRI, or a fully resolved IRI.
 The complex context processing\footnote{\url{http://www.w3.org/TR/json-ld-api/\#context-processing-algorithms}}
 and expansion algorithms\footnote{\url{http://www.w3.org/TR/json-ld-api/\#expansion-algorithms}}
-are indicative, as is the need for several similar-but-different document forms.
-EDN-LD uses the richer elements and structures available in EDN to reduce these problems.
+are indicative of this problem, as is the need for several similar-but-different ``Document Forms''. EDN-LD uses the richer elements and structures available in EDN to reduce these problems.
 
 
 \section{Extensible Data Notation}
@@ -50,7 +49,7 @@ EDN does not have a type system and does not include schemas. However several sc
 
 \section{EDN for Linked Data}
 
-In EDN-LD as in JSON-LD, IRIs and blank nodes are represented by strings. IRIs can be {\it contracted} to keywords using a context: a map from keywords to IRIs or other contractions. Contractions can be expanded to IRIs using the same context. Literals are always represented as maps with a special {\tt :value} key for the lexical value, and optional {\tt :type} and {\tt :lang} keys. Discrete triples and quads are represented with vectors. Graphs and datasets are represented as nested maps from graph IRI to subject IRI to predicate IRI, ending with a set of objects. These two ``document forms'' have very different shapes, suited to different processing goals. EDN-LD uses Apache Jena\footnote{\url{http://jena.apache.org}} to read from and write to a wide range of linked data formats.
+In EDN-LD as in JSON-LD, IRIs and blank node identifiers are represented by strings. IRIs can be {\it contracted} to keywords using a context: a map from keywords to IRIs or other contractions. Contractions can be expanded to IRIs using the same context. Literals are always represented as maps with a special {\tt :value} key for the lexical value, and optional {\tt :type} and {\tt :lang} keys. Discrete triples and quads are represented with vectors. Graphs and datasets are represented as nested maps from graph IRI to subject IRI to predicate IRI, ending with a set of objects. These two ``document forms'' have very different shapes, suited to different processing goals, e.g. sequences of triples for streaming and filtering, and nested maps for sorting and selecting. EDN-LD uses Apache Jena\footnote{\url{http://jena.apache.org}} to read from and write to a wide range of linked data formats.
 
 Figure~\ref{context} shows an EDN-LD context. It includes a {\tt :dc} prefix for Dublin Core metadata elements, and an {\tt :ex} prefix for the example domain. The {\tt nil} key indicates that its value {\tt :ex} is the default prefix. The {\tt :title} and {\tt :author} contractions expand (recursively) to Dublin Core IRIs.
 
@@ -65,7 +64,7 @@ Figure~\ref{context} shows an EDN-LD context. It includes a {\tt :dc} prefix for
 (expand context :title)
 ; "http://purl.org/dc/elements/1.1/title"
 \end{verbatim}
-\caption{An example of an EDN-LD context}
+\caption{An example of an EDN-LD context, showing an {\tt expand} function call on the {\tt :title} contraction, and the expanded IRI that is returned}
 \label{context}
 \end{figure}
 
@@ -82,7 +81,7 @@ Figure~\ref{example} shows an example of a simple data conversion pipeline using
 (->> "books.tsv"
      read-tsv
      (map assign-subject-iri)
-     (map #(triplify resources))
+     (mapcat #(triplify resources %))
      (map #(expand-all context %))
      (write-triples "books.tsv"
                     prefixes))
@@ -94,7 +93,7 @@ Figure~\ref{example} shows an example of a simple data conversion pipeline using
 
 \section{Future Work}
 
-EDN-LD is still in development, but available for use. We plan to provide an interactive online tutorial that can be used without needing to install Clojure. We also plan to implement convenient syntax for RDF collections (linked lists), and for various OWL constructs including annotation axioms and class expressions. Another possibility is a ClojureScript implementation of EDN-LD. ClojureScript is a close relative of Clojure that compiles to JavaScript. Dual Clojure and ClojureScript libraries are becoming increasingly common. But a ClojureScript version of EDN-LD could not use Jena, and would need alternative methods for reading and writing linked data files.
+EDN-LD is still in development, but available for use. We plan to implement convenient syntax for RDF collections (linked lists), and for various OWL constructs including annotation axioms and class expressions. We are also considering a ClojureScript implementation of EDN-LD. ClojureScript is a language that is closely related to Clojure, that compiles to JavaScript rather than JVM bytecode. Dual Clojure and ClojureScript libraries are becoming increasingly common. But a ClojureScript version of EDN-LD could not use Jena, and would need alternative methods for reading and writing linked data files.
 
 
 \section{Demonstration}
